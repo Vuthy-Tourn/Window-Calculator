@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>Simple_Windows_Calculator</RootNamespace>
+	  <TargetFramework>net8.0-windows</TargetFramework>
+	  <RootNamespace>Simple_Windows_Calculator</RootNamespace>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>

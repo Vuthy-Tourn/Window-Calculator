@@ -36,8 +36,37 @@ namespace Simple_Windows_Calculator
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            // Configure memory buttons properly
+            int memBtnWidth = 110;
+            int memBtnX = 5;
+            int memBtnY = 6;
 
+            ConfigureMemoryButton(btnMemoryClear, "MC", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
+            memBtnX += memBtnWidth + 3;
+            ConfigureMemoryButton(btnMemoryRecall, "MR", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
+            memBtnX += memBtnWidth + 3;
+            ConfigureMemoryButton(btnMemoryAdd, "M+", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
+            memBtnX += memBtnWidth + 3;
+            ConfigureMemoryButton(btnMemorySubtract, "M-", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
+            memBtnX += memBtnWidth + 3;
+            ConfigureMemoryButton(btnMemoryStore, "MS", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
+            memBtnX += memBtnWidth + 3;
+            ConfigureMemoryButton(btnMemoryShow, "M▼", new Point(memBtnX, memBtnY), new Size(54, 36));
         }
+
+        private void ConfigureMemoryButton(Button btn, string text, Point location, Size size)
+        {
+            btn.Text = text;
+            btn.Size = size;
+            btn.Location = location;
+            btn.BackColor = Color.FromArgb(32, 32, 32);
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 0;
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(50, 50, 50);
+            btn.ForeColor = Color.FromArgb(100, 100, 100);
+            btn.Font = new Font("Segoe UI", 11F, FontStyle.Regular);
+        }
+
 
         // Hide blinking cursor from textboxes
         private void MainDisplay_MouseDown(object sender, MouseEventArgs e)
@@ -448,6 +477,11 @@ namespace Simple_Windows_Calculator
                 }
             }
             return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private void textFormulaDisplay_TextChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }
