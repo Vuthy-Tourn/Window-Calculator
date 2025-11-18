@@ -44,6 +44,9 @@ namespace Simple_Windows_Calculator
             memoryPanelVisible = true;
             panelMemory.Visible = memoryPanelVisible;
 
+            // Initialize history system (but don't show it yet)
+            InitializeHistoryPanel();
+
             // Set focus to form for keyboard input
             this.Focus();
 
@@ -51,6 +54,7 @@ namespace Simple_Windows_Calculator
             textMainDisplay.Text = "0";
             textFormulaDisplay.Clear();
         }
+
 
         // Hide blinking cursor from textboxes
         private void MainDisplay_MouseDown(object sender, MouseEventArgs e)
@@ -296,11 +300,12 @@ namespace Simple_Windows_Calculator
                     result = operand[0];
                     textMainDisplay.Text = result.ToString(precisionFormat);
 
-                    // Add to history
+                    // Add to history with enhanced format
                     if (!string.IsNullOrEmpty(originalFormula))
                     {
-                        string historyEntry = $"{originalFormula} {operand[1]} = {result}";
-                        AddToHistory(historyEntry);
+                        string historyExpression = $"{originalFormula} {operand[1]}";
+                        string historyResult = result.ToString(precisionFormat);
+                        AddToHistory(historyExpression, historyResult);
                     }
 
                     specialOperation = "";
@@ -466,6 +471,15 @@ namespace Simple_Windows_Calculator
             {
                 btnClearEntry.PerformClick();
             }
+            // History shortcut (Ctrl+H) and close with Escape when history is open
+            else if (e.KeyCode == Keys.H && e.Control)
+            {
+                ToggleHistoryPanel();
+            }
+            else if (e.KeyCode == Keys.Escape && isHistoryVisible)
+            {
+                ToggleHistoryPanel();
+            }
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -619,39 +633,338 @@ namespace Simple_Windows_Calculator
         }
 
         // History functionality
-        private List<string> calculationHistory = new List<string>();
-        private const int MaxHistoryEntries = 10;
+        private List<HistoryEntry> calculationHistory = new List<HistoryEntry>();
+        private const int MaxHistoryEntries = 50;
 
-        private void ButtonMenu_Click(object sender, EventArgs e)
+        // History panel animation
+        private Panel historyOverlayPanel;
+        private Panel historyContentPanel;
+        private bool isHistoryVisible = false;
+        private const int HistoryPanelHeight = 400;
+        private Timer slideTimer;
+        private int targetY;
+
+        public class HistoryEntry
         {
-            // Create context menu
-            ContextMenuStrip contextMenu = new ContextMenuStrip();
+            public string Expression { get; set; }
+            public string Result { get; set; }
+            public DateTime Timestamp { get; set; }
 
-            // Add menu items
-            ToolStripMenuItem standardItem = new ToolStripMenuItem("Standard");
-            ToolStripMenuItem scientificItem = new ToolStripMenuItem("Scientific");
-            ToolStripMenuItem programmerItem = new ToolStripMenuItem("Programmer");
-            ToolStripMenuItem aboutItem = new ToolStripMenuItem("About");
+            public override string ToString()
+            {
+                return $"{Expression} = {Result}";
+            }
+        }
 
-            standardItem.Click += (s, args) => ShowCalculatorMode("Standard");
-            scientificItem.Click += (s, args) => ShowCalculatorMode("Scientific");
-            programmerItem.Click += (s, args) => ShowCalculatorMode("Programmer");
-            aboutItem.Click += (s, args) => ShowAboutDialog();
+        private void InitializeHistoryPanel()
+        {
+            if (historyOverlayPanel != null) return;
 
-            contextMenu.Items.Add(standardItem);
-            contextMenu.Items.Add(scientificItem);
-            contextMenu.Items.Add(programmerItem);
-            contextMenu.Items.Add(new ToolStripSeparator());
-            contextMenu.Items.Add(aboutItem);
+            // Create overlay panel for dark background
+            historyOverlayPanel = new Panel()
+            {
+                BackColor = Color.FromArgb(128, 0, 0, 0), // Semi-transparent black
+                Dock = DockStyle.Fill,
+                Visible = false,
+                Location = new Point(0, 0),
+                Size = this.ClientSize
+            };
 
-            // Show menu at button location
-            contextMenu.Show(btnMenu, new Point(0, btnMenu.Height));
+            // Add click event to close when clicking outside
+            historyOverlayPanel.Click += (s, e) => ToggleHistoryPanel();
+
+            // Create history content panel
+            historyContentPanel = new Panel()
+            {
+                BackColor = Color.FromArgb(32, 32, 32),
+                ForeColor = Color.White,
+                Size = new Size(this.ClientSize.Width, HistoryPanelHeight),
+                Location = new Point(0, this.ClientSize.Height),
+                Visible = false
+            };
+
+            // Header
+            Label headerLabel = new Label()
+            {
+                Text = "History",
+                Font = new Font("Segoe UI", 16F, FontStyle.Bold),
+                ForeColor = Color.White,
+                Dock = DockStyle.Top,
+                Height = 60,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(20, 0, 0, 0)
+            };
+
+            // Clear button in header
+            Button clearHistoryBtn = new Button()
+            {
+                Text = "Clear all",
+                Font = new Font("Segoe UI", 10F),
+                BackColor = Color.FromArgb(50, 50, 50),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Height = 30,
+                Width = 80,
+                Dock = DockStyle.Right,
+                Margin = new Padding(0, 15, 20, 15)
+            };
+            clearHistoryBtn.FlatAppearance.BorderSize = 0;
+
+            // Close button in header
+            Button closeHistoryBtn = new Button()
+            {
+                Text = "✕",
+                Font = new Font("Segoe UI", 12F),
+                BackColor = Color.Transparent,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Height = 30,
+                Width = 40,
+                Dock = DockStyle.Right,
+                Margin = new Padding(0, 15, 10, 15)
+            };
+            closeHistoryBtn.FlatAppearance.BorderSize = 0;
+            closeHistoryBtn.Click += (s, ev) => ToggleHistoryPanel();
+
+            Panel headerPanel = new Panel()
+            {
+                Dock = DockStyle.Top,
+                Height = 60,
+                BackColor = Color.FromArgb(32, 32, 32)
+            };
+            headerPanel.Controls.Add(clearHistoryBtn);
+            headerPanel.Controls.Add(closeHistoryBtn);
+            headerPanel.Controls.Add(headerLabel);
+
+            // History list
+            ListBox historyList = new ListBox()
+            {
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 11F),
+                BackColor = Color.FromArgb(32, 32, 32),
+                ForeColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                DrawMode = DrawMode.OwnerDrawVariable
+            };
+
+            // Custom drawing for history items
+            historyList.DrawItem += (s, args) =>
+            {
+                if (args.Index < 0) return;
+
+                args.DrawBackground();
+
+                if ((args.State & DrawItemState.Selected) == DrawItemState.Selected)
+                {
+                    args.Graphics.FillRectangle(new SolidBrush(Color.FromArgb(50, 50, 50)), args.Bounds);
+                }
+
+                HistoryEntry entry = historyList.Items[args.Index] as HistoryEntry;
+                if (entry != null)
+                {
+                    // Draw expression
+                    Rectangle expressionRect = new Rectangle(args.Bounds.X + 10, args.Bounds.Y,
+                                                           args.Bounds.Width - 20, args.Bounds.Height / 2);
+                    using (Font expressionFont = new Font("Segoe UI", 10F, FontStyle.Regular))
+                    {
+                        args.Graphics.DrawString(entry.Expression, expressionFont,
+                                               Brushes.LightGray, expressionRect);
+                    }
+
+                    // Draw result
+                    Rectangle resultRect = new Rectangle(args.Bounds.X + 10, args.Bounds.Y + args.Bounds.Height / 2,
+                                                       args.Bounds.Width - 20, args.Bounds.Height / 2);
+                    using (Font resultFont = new Font("Segoe UI", 11F, FontStyle.Bold))
+                    {
+                        args.Graphics.DrawString(entry.Result, resultFont,
+                                               Brushes.White, resultRect);
+                    }
+                }
+
+                args.DrawFocusRectangle();
+            };
+
+            historyList.MeasureItem += (s, args) =>
+            {
+                args.ItemHeight = 60;
+            };
+
+            historyList.DoubleClick += (s, args) =>
+            {
+                if (historyList.SelectedItem is HistoryEntry selectedEntry)
+                {
+                    textMainDisplay.Text = selectedEntry.Result;
+                    ToggleHistoryPanel(); // Close after selection
+                }
+            };
+
+            // Clear history button event
+            clearHistoryBtn.Click += (s, ev) =>
+            {
+                var result = MessageBox.Show("Are you sure you want to delete all history?",
+                                           "Clear History",
+                                           MessageBoxButtons.YesNo,
+                                           MessageBoxIcon.Question);
+                if (result == DialogResult.Yes)
+                {
+                    calculationHistory.Clear();
+                    historyList.Items.Clear();
+                }
+            };
+
+            // Add controls to history content panel
+            historyContentPanel.Controls.Add(historyList);
+            historyContentPanel.Controls.Add(headerPanel);
+
+            // Store reference to update later
+            historyContentPanel.Tag = historyList;
+
+            // Add panels to main form
+            this.Controls.Add(historyOverlayPanel);
+            this.Controls.Add(historyContentPanel);
+
+            // Bring to front
+            historyOverlayPanel.BringToFront();
+            historyContentPanel.BringToFront();
+
+            // Initialize slide timer
+            slideTimer = new Timer();
+            slideTimer.Interval = 10;
+            slideTimer.Tick += SlideTimer_Tick;
+        }
+
+        private void SlideTimer_Tick(object sender, EventArgs e)
+        {
+            if (isHistoryVisible)
+            {
+                // Slide in (moving up)
+                if (historyContentPanel.Top > targetY)
+                {
+                    historyContentPanel.Top -= 25; // Faster animation
+                    if (historyContentPanel.Top <= targetY)
+                    {
+                        historyContentPanel.Top = targetY;
+                        slideTimer.Stop();
+                    }
+                }
+            }
+            else
+            {
+                // Slide out (moving down)
+                if (historyContentPanel.Top < targetY)
+                {
+                    historyContentPanel.Top += 65; // Faster animation
+                    if (historyContentPanel.Top >= targetY)
+                    {
+                        historyContentPanel.Top = targetY;
+                        slideTimer.Stop();
+                        historyContentPanel.Visible = false;
+                        historyOverlayPanel.Visible = false;
+                    }
+                }
+            }
+        }
+
+        private void ToggleHistoryPanel()
+        {
+            if (historyContentPanel == null)
+            {
+                InitializeHistoryPanel();
+            }
+
+            isHistoryVisible = !isHistoryVisible;
+
+            if (isHistoryVisible)
+            {
+                // Update history list before showing
+                ListBox historyList = historyContentPanel.Tag as ListBox;
+                historyList.Items.Clear();
+                foreach (var entry in calculationHistory)
+                {
+                    historyList.Items.Add(entry);
+                }
+
+                // Ensure proper width
+                historyContentPanel.Width = this.ClientSize.Width;
+                historyOverlayPanel.Size = this.ClientSize;
+
+                // Position history panel at bottom (off-screen)
+                historyContentPanel.Location = new Point(0, this.ClientSize.Height);
+                historyContentPanel.Visible = true;
+                historyOverlayPanel.Visible = true;
+
+                // Calculate target position (slide up to show)
+                targetY = this.ClientSize.Height - HistoryPanelHeight;
+
+                // Start animation
+                slideTimer.Start();
+            }
+            else
+            {
+                // Calculate target position (slide down to hide)
+                targetY = this.ClientSize.Height;
+                slideTimer.Start();
+            }
         }
 
         private void ButtonHistory_Click(object sender, EventArgs e)
         {
-            ShowHistoryDialog();
+            ToggleHistoryPanel();
         }
+
+        private void AddToHistory(string expression, string result)
+        {
+            HistoryEntry entry = new HistoryEntry
+            {
+                Expression = expression,
+                Result = result,
+                Timestamp = DateTime.Now
+            };
+
+            calculationHistory.Insert(0, entry);
+
+            // Keep only the most recent entries
+            if (calculationHistory.Count > MaxHistoryEntries)
+            {
+                calculationHistory.RemoveAt(MaxHistoryEntries);
+            }
+        }
+     
+
+        // Handle form resize to keep history panel properly sized
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+
+            if (historyOverlayPanel != null)
+            {
+                historyOverlayPanel.Size = this.ClientSize;
+            }
+
+            if (historyContentPanel != null && isHistoryVisible)
+            {
+                historyContentPanel.Width = this.ClientSize.Width;
+                historyContentPanel.Location = new Point(0, this.ClientSize.Height - HistoryPanelHeight);
+            }
+            else if (historyContentPanel != null)
+            {
+                historyContentPanel.Width = this.ClientSize.Width;
+            }
+        }
+
+        // Clean up resources
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (slideTimer != null)
+            {
+                slideTimer.Stop();
+                slideTimer.Dispose();
+            }
+            base.OnFormClosing(e);
+        }
+
+
+        // end of history functionality
 
         private void ShowCalculatorMode(string mode)
         {
@@ -672,59 +985,50 @@ namespace Simple_Windows_Calculator
                 MessageBoxIcon.Information
             );
         }
-
-        private void AddToHistory(string calculation)
+        private void ButtonMenu_Click(object sender, EventArgs e)
         {
-            calculationHistory.Insert(0, calculation);
-            if (calculationHistory.Count > MaxHistoryEntries)
+            // Create context menu
+            ContextMenuStrip contextMenu = new ContextMenuStrip();
+            contextMenu.BackColor = Color.FromArgb(32, 32, 32);
+            contextMenu.ForeColor = Color.White;
+
+            // Add menu items
+            ToolStripMenuItem standardItem = new ToolStripMenuItem("Standard");
+            ToolStripMenuItem scientificItem = new ToolStripMenuItem("Scientific");
+            ToolStripMenuItem programmerItem = new ToolStripMenuItem("Programmer");
+
+            // History item with count
+            string historyText = calculationHistory.Count > 0 ?
+                $"History ({calculationHistory.Count})" : "History";
+            ToolStripMenuItem historyItem = new ToolStripMenuItem(historyText);
+
+            ToolStripMenuItem aboutItem = new ToolStripMenuItem("About");
+
+            // Style menu items
+            foreach (ToolStripMenuItem item in new[] { standardItem, scientificItem, programmerItem, historyItem, aboutItem })
             {
-                calculationHistory.RemoveAt(MaxHistoryEntries);
+                item.BackColor = Color.FromArgb(32, 32, 32);
+                item.ForeColor = Color.White;
             }
+
+            standardItem.Click += (s, args) => ShowCalculatorMode("Standard");
+            scientificItem.Click += (s, args) => ShowCalculatorMode("Scientific");
+            programmerItem.Click += (s, args) => ShowCalculatorMode("Programmer");
+            historyItem.Click += (s, args) => ToggleHistoryPanel();
+            aboutItem.Click += (s, args) => ShowAboutDialog();
+
+            contextMenu.Items.Add(standardItem);
+            contextMenu.Items.Add(scientificItem);
+            contextMenu.Items.Add(programmerItem);
+            contextMenu.Items.Add(new ToolStripSeparator());
+            contextMenu.Items.Add(historyItem);
+            contextMenu.Items.Add(new ToolStripSeparator());
+            contextMenu.Items.Add(aboutItem);
+
+            // Show menu at button location
+            contextMenu.Show(btnMenu, new Point(0, btnMenu.Height));
         }
 
-        private void ShowHistoryDialog()
-        {
-            if (calculationHistory.Count == 0)
-            {
-                MessageBox.Show("No calculation history available.", "History",
-                               MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            Form historyForm = new Form()
-            {
-                Text = "Calculation History",
-                Size = new Size(400, 300),
-                StartPosition = FormStartPosition.CenterParent,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                MaximizeBox = false,
-                MinimizeBox = false
-            };
-
-            ListBox historyList = new ListBox()
-            {
-                Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 10F),
-                DataSource = calculationHistory.ToArray()
-            };
-
-            Button clearButton = new Button()
-            {
-                Text = "Clear History",
-                Dock = DockStyle.Bottom,
-                Height = 40
-            };
-
-            clearButton.Click += (s, e) =>
-            {
-                calculationHistory.Clear();
-                historyForm.Close();
-            };
-
-            historyForm.Controls.Add(historyList);
-            historyForm.Controls.Add(clearButton);
-            historyForm.ShowDialog(this);
-        }
 
         private void textMainDisplay_TextChanged(object sender, EventArgs e)
         {
