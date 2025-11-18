@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Web;
+using Timer = System.Windows.Forms.Timer;
 
 namespace Simple_Windows_Calculator
 {
@@ -36,37 +37,20 @@ namespace Simple_Windows_Calculator
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Configure memory buttons properly
-            int memBtnWidth = 110;
-            int memBtnX = 5;
-            int memBtnY = 6;
+            // Initialize memory indicator
+            UpdateMemoryIndicator();
 
-            ConfigureMemoryButton(btnMemoryClear, "MC", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
-            memBtnX += memBtnWidth + 3;
-            ConfigureMemoryButton(btnMemoryRecall, "MR", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
-            memBtnX += memBtnWidth + 3;
-            ConfigureMemoryButton(btnMemoryAdd, "M+", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
-            memBtnX += memBtnWidth + 3;
-            ConfigureMemoryButton(btnMemorySubtract, "M-", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
-            memBtnX += memBtnWidth + 3;
-            ConfigureMemoryButton(btnMemoryStore, "MS", new Point(memBtnX, memBtnY), new Size(memBtnWidth, 36));
-            memBtnX += memBtnWidth + 3;
-            ConfigureMemoryButton(btnMemoryShow, "M▼", new Point(memBtnX, memBtnY), new Size(54, 36));
+            // Initialize memory panel visibility - set to TRUE by default
+            memoryPanelVisible = true;
+            panelMemory.Visible = memoryPanelVisible;
+
+            // Set focus to form for keyboard input
+            this.Focus();
+
+            // Initialize displays
+            textMainDisplay.Text = "0";
+            textFormulaDisplay.Clear();
         }
-
-        private void ConfigureMemoryButton(Button btn, string text, Point location, Size size)
-        {
-            btn.Text = text;
-            btn.Size = size;
-            btn.Location = location;
-            btn.BackColor = Color.FromArgb(32, 32, 32);
-            btn.FlatStyle = FlatStyle.Flat;
-            btn.FlatAppearance.BorderSize = 0;
-            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(50, 50, 50);
-            btn.ForeColor = Color.FromArgb(100, 100, 100);
-            btn.Font = new Font("Segoe UI", 11F, FontStyle.Regular);
-        }
-
 
         // Hide blinking cursor from textboxes
         private void MainDisplay_MouseDown(object sender, MouseEventArgs e)
@@ -276,6 +260,9 @@ namespace Simple_Windows_Calculator
         private void ButtonEqual_Click(object sender, EventArgs e)
         {
             EnableOperationKeys(sender, e);
+
+            string originalFormula = textFormulaDisplay.Text;
+
             if (textMainDisplay.Text != result.ToString(precisionFormat) || textMainDisplay.Text == "0")
             {
                 operand[1] = Double.Parse(textMainDisplay.Text);
@@ -288,7 +275,7 @@ namespace Simple_Windows_Calculator
                         HandleInvalidInput(error);
                         return;
                     }
-                    //MessageBox.Show($"Operand 0 now is {operand[0]}");
+
                     if (specialOperation != String.Empty)
                     {
                         if (specialOperation.Equals("%"))
@@ -305,13 +292,21 @@ namespace Simple_Windows_Calculator
                     {
                         textFormulaDisplay.Text += " " + operand[1].ToString(precisionFormat) + " =";
                     }
+
                     result = operand[0];
                     textMainDisplay.Text = result.ToString(precisionFormat);
+
+                    // Add to history
+                    if (!string.IsNullOrEmpty(originalFormula))
+                    {
+                        string historyEntry = $"{originalFormula} {operand[1]} = {result}";
+                        AddToHistory(historyEntry);
+                    }
+
                     specialOperation = "";
                 }
                 else if (specialOperation != String.Empty)
                 {
-
                     textFormulaDisplay.Clear();
                     if (specialOperation.Equals("%"))
                     {
@@ -371,6 +366,12 @@ namespace Simple_Windows_Calculator
             btnSquareRoot.Enabled = true;
             btnPlusMinus.Enabled = true;
             btnDot.Enabled = true;
+
+            // Also enable memory store, add, and subtract buttons
+            btnMemoryStore.Enabled = true;
+            btnMemoryAdd.Enabled = true;
+            btnMemorySubtract.Enabled = true;
+
             textMainDisplay.Text = "0";
         }
 
@@ -480,6 +481,252 @@ namespace Simple_Windows_Calculator
         }
 
         private void textFormulaDisplay_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        // Memory functionality
+        private double memoryValue = 0;
+        private bool memoryStored = false;
+        private bool memoryPanelVisible = true;
+
+        // Memory functions implementation
+        private void ButtonMemoryClear_Click(object sender, EventArgs e)
+        {
+            memoryValue = 0;
+            memoryStored = false;
+            UpdateMemoryIndicator();
+        }
+
+        private void ButtonMemoryRecall_Click(object sender, EventArgs e)
+        {
+            if (memoryStored)
+            {
+                // Windows 10 behavior: Recall memory value to display
+                textMainDisplay.Text = memoryValue.ToString(precisionFormat);
+                clearFirstTime = false;
+
+                // If there's an ongoing operation, use memory value as second operand
+                if (!string.IsNullOrEmpty(textFormulaDisplay.Text) && !textFormulaDisplay.Text.Contains("="))
+                {
+                    operand[1] = memoryValue;
+                }
+            }
+        }
+
+        private void ButtonMemoryAdd_Click(object sender, EventArgs e)
+        {
+            if (double.TryParse(textMainDisplay.Text, out double currentValue))
+            {
+                memoryValue += currentValue;
+                memoryStored = true;
+                UpdateMemoryIndicator();
+
+                // Windows 10 behavior: Show "M+" briefly in formula display
+                ShowMemoryOperationInDisplay("M+");
+            }
+        }
+
+        private void ButtonMemorySubtract_Click(object sender, EventArgs e)
+        {
+            if (double.TryParse(textMainDisplay.Text, out double currentValue))
+            {
+                memoryValue -= currentValue;
+                memoryStored = true;
+                UpdateMemoryIndicator();
+
+                // Windows 10 behavior: Show "M-" briefly in formula display
+                ShowMemoryOperationInDisplay("M-");
+            }
+        }
+
+        private void ButtonMemoryStore_Click(object sender, EventArgs e)
+        {
+            if (double.TryParse(textMainDisplay.Text, out double currentValue))
+            {
+                memoryValue = currentValue;
+                memoryStored = true;
+                UpdateMemoryIndicator();
+
+                // Windows 10 behavior: Show "MS" briefly in formula display
+                ShowMemoryOperationInDisplay("MS");
+            }
+        }
+
+        private void ButtonMemoryShow_Click(object sender, EventArgs e)
+        {
+            // Just update the indicator without hiding the panel
+            UpdateMemoryIndicator();
+
+            // Optional: Show memory value in formula display briefly
+            if (memoryStored)
+            {
+                ShowMemoryOperationInDisplay($"Memory: {memoryValue}");
+            }
+        }
+
+        private void ShowMemoryOperationInDisplay(string operation)
+        {
+            string originalFormula = textFormulaDisplay.Text;
+            textFormulaDisplay.Text = operation;
+
+            // Clear after a short delay (Windows 10 behavior)
+            Timer timer = new Timer();
+            timer.Interval = 500; // 0.5 seconds
+            timer.Tick += (s, args) =>
+            {
+                textFormulaDisplay.Text = originalFormula;
+                timer.Stop();
+                timer.Dispose();
+            };
+            timer.Start();
+        }
+
+        private void UpdateMemoryIndicator()
+        {
+            // Windows 10 behavior: Only show M indicator when memory has value
+            if (memoryStored)
+            {
+                btnMemoryShow.Text = "M▴";
+                btnMemoryShow.ForeColor = Color.FromArgb(0, 120, 215);
+
+                // Enable all memory buttons when memory has value
+                btnMemoryClear.Enabled = true;
+                btnMemoryRecall.Enabled = true;
+                btnMemoryAdd.Enabled = true;
+                btnMemorySubtract.Enabled = true;
+                btnMemoryStore.Enabled = true;
+
+                // White color for enabled buttons
+                btnMemoryClear.ForeColor = Color.White;
+                btnMemoryRecall.ForeColor = Color.White;
+                btnMemoryAdd.ForeColor = Color.White;
+                btnMemorySubtract.ForeColor = Color.White;
+                btnMemoryStore.ForeColor = Color.White;
+
+                // Make MC, MR, M+, M- fully opaque when memory has value
+                btnMemoryClear.BackColor = Color.FromArgb(32, 32, 32);
+                btnMemoryRecall.BackColor = Color.FromArgb(32, 32, 32);
+                btnMemoryAdd.BackColor = Color.FromArgb(32, 32, 32);
+                btnMemorySubtract.BackColor = Color.FromArgb(32, 32, 32);
+                btnMemoryStore.BackColor = Color.FromArgb(32, 32, 32);
+            }
+            else
+            {
+                btnMemoryShow.Text = "M▾";
+                btnMemoryShow.ForeColor = Color.FromArgb(100, 100, 100);
+            }
+        }
+
+        // History functionality
+        private List<string> calculationHistory = new List<string>();
+        private const int MaxHistoryEntries = 10;
+
+        private void ButtonMenu_Click(object sender, EventArgs e)
+        {
+            // Create context menu
+            ContextMenuStrip contextMenu = new ContextMenuStrip();
+
+            // Add menu items
+            ToolStripMenuItem standardItem = new ToolStripMenuItem("Standard");
+            ToolStripMenuItem scientificItem = new ToolStripMenuItem("Scientific");
+            ToolStripMenuItem programmerItem = new ToolStripMenuItem("Programmer");
+            ToolStripMenuItem aboutItem = new ToolStripMenuItem("About");
+
+            standardItem.Click += (s, args) => ShowCalculatorMode("Standard");
+            scientificItem.Click += (s, args) => ShowCalculatorMode("Scientific");
+            programmerItem.Click += (s, args) => ShowCalculatorMode("Programmer");
+            aboutItem.Click += (s, args) => ShowAboutDialog();
+
+            contextMenu.Items.Add(standardItem);
+            contextMenu.Items.Add(scientificItem);
+            contextMenu.Items.Add(programmerItem);
+            contextMenu.Items.Add(new ToolStripSeparator());
+            contextMenu.Items.Add(aboutItem);
+
+            // Show menu at button location
+            contextMenu.Show(btnMenu, new Point(0, btnMenu.Height));
+        }
+
+        private void ButtonHistory_Click(object sender, EventArgs e)
+        {
+            ShowHistoryDialog();
+        }
+
+        private void ShowCalculatorMode(string mode)
+        {
+            lblTitle.Text = mode;
+            // Here you would typically show/hide different calculator panels
+            // For now, we'll just update the title
+            MessageBox.Show($"Switched to {mode} mode", "Calculator Mode");
+        }
+
+        private void ShowAboutDialog()
+        {
+            MessageBox.Show(
+                "Simple Windows Calculator\n\n" +
+                "A feature-rich calculator application\n" +
+                "with memory functions and history tracking.",
+                "About Calculator",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            );
+        }
+
+        private void AddToHistory(string calculation)
+        {
+            calculationHistory.Insert(0, calculation);
+            if (calculationHistory.Count > MaxHistoryEntries)
+            {
+                calculationHistory.RemoveAt(MaxHistoryEntries);
+            }
+        }
+
+        private void ShowHistoryDialog()
+        {
+            if (calculationHistory.Count == 0)
+            {
+                MessageBox.Show("No calculation history available.", "History",
+                               MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            Form historyForm = new Form()
+            {
+                Text = "Calculation History",
+                Size = new Size(400, 300),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            ListBox historyList = new ListBox()
+            {
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 10F),
+                DataSource = calculationHistory.ToArray()
+            };
+
+            Button clearButton = new Button()
+            {
+                Text = "Clear History",
+                Dock = DockStyle.Bottom,
+                Height = 40
+            };
+
+            clearButton.Click += (s, e) =>
+            {
+                calculationHistory.Clear();
+                historyForm.Close();
+            };
+
+            historyForm.Controls.Add(historyList);
+            historyForm.Controls.Add(clearButton);
+            historyForm.ShowDialog(this);
+        }
+
+        private void textMainDisplay_TextChanged(object sender, EventArgs e)
         {
 
         }
