@@ -631,23 +631,24 @@ namespace Simple_Windows_Calculator
                 btnMemoryShow.ForeColor = Color.FromArgb(100, 100, 100);
             }
         }
+        // end of memory functionality
 
         // History functionality
         private List<HistoryEntry> calculationHistory = new List<HistoryEntry>();
         private const int MaxHistoryEntries = 50;
 
-        // History panel animation
-        private Panel historyOverlayPanel;
-        private Panel historyContentPanel;
+        // History panel animation - made nullable
+        private Panel? historyOverlayPanel;
+        private Panel? historyContentPanel;
         private bool isHistoryVisible = false;
-        private const int HistoryPanelHeight = 400;
-        private Timer slideTimer;
+        private const int HistoryPanelHeight = 500;
+        private Timer? slideTimer;
         private int targetY;
 
         public class HistoryEntry
         {
-            public string Expression { get; set; }
-            public string Result { get; set; }
+            public string Expression { get; set; } = string.Empty;
+            public string Result { get; set; } = string.Empty;
             public DateTime Timestamp { get; set; }
 
             public override string ToString()
@@ -663,7 +664,7 @@ namespace Simple_Windows_Calculator
             // Create overlay panel for dark background
             historyOverlayPanel = new Panel()
             {
-                BackColor = Color.FromArgb(128, 0, 0, 0), // Semi-transparent black
+                BackColor = Color.FromArgb(80, 0, 0, 0), // Semi-transparent black
                 Dock = DockStyle.Fill,
                 Visible = false,
                 Location = new Point(0, 0),
@@ -695,7 +696,7 @@ namespace Simple_Windows_Calculator
                 Padding = new Padding(20, 0, 0, 0)
             };
 
-            // Clear button in header
+            // Clear button in header - FIXED: Added to the correct parent
             Button clearHistoryBtn = new Button()
             {
                 Text = "Clear all",
@@ -704,27 +705,11 @@ namespace Simple_Windows_Calculator
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Height = 30,
-                Width = 80,
+                Width = 180,
                 Dock = DockStyle.Right,
                 Margin = new Padding(0, 15, 20, 15)
             };
             clearHistoryBtn.FlatAppearance.BorderSize = 0;
-
-            // Close button in header
-            Button closeHistoryBtn = new Button()
-            {
-                Text = "✕",
-                Font = new Font("Segoe UI", 12F),
-                BackColor = Color.Transparent,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Height = 30,
-                Width = 40,
-                Dock = DockStyle.Right,
-                Margin = new Padding(0, 15, 10, 15)
-            };
-            closeHistoryBtn.FlatAppearance.BorderSize = 0;
-            closeHistoryBtn.Click += (s, ev) => ToggleHistoryPanel();
 
             Panel headerPanel = new Panel()
             {
@@ -732,9 +717,10 @@ namespace Simple_Windows_Calculator
                 Height = 60,
                 BackColor = Color.FromArgb(32, 32, 32)
             };
-            headerPanel.Controls.Add(clearHistoryBtn);
-            headerPanel.Controls.Add(closeHistoryBtn);
+
+            // Add controls to header panel in correct order
             headerPanel.Controls.Add(headerLabel);
+            headerPanel.Controls.Add(clearHistoryBtn); // Clear button now properly added
 
             // History list
             ListBox historyList = new ListBox()
@@ -759,7 +745,7 @@ namespace Simple_Windows_Calculator
                     args.Graphics.FillRectangle(new SolidBrush(Color.FromArgb(50, 50, 50)), args.Bounds);
                 }
 
-                HistoryEntry entry = historyList.Items[args.Index] as HistoryEntry;
+                HistoryEntry? entry = historyList.Items[args.Index] as HistoryEntry;
                 if (entry != null)
                 {
                     // Draw expression
@@ -833,8 +819,10 @@ namespace Simple_Windows_Calculator
             slideTimer.Tick += SlideTimer_Tick;
         }
 
-        private void SlideTimer_Tick(object sender, EventArgs e)
+        private void SlideTimer_Tick(object? sender, EventArgs e)
         {
+            if (historyContentPanel == null) return;
+
             if (isHistoryVisible)
             {
                 // Slide in (moving up)
@@ -844,7 +832,7 @@ namespace Simple_Windows_Calculator
                     if (historyContentPanel.Top <= targetY)
                     {
                         historyContentPanel.Top = targetY;
-                        slideTimer.Stop();
+                        slideTimer?.Stop();
                     }
                 }
             }
@@ -853,14 +841,16 @@ namespace Simple_Windows_Calculator
                 // Slide out (moving down)
                 if (historyContentPanel.Top < targetY)
                 {
-                    historyContentPanel.Top += 65; // Faster animation
+                    historyContentPanel.Top += 80; // Faster animation
                     if (historyContentPanel.Top >= targetY)
                     {
                         historyContentPanel.Top = targetY;
-                        slideTimer.Stop();
+                        slideTimer?.Stop();
                         historyContentPanel.Visible = false;
-                        historyOverlayPanel.Visible = false;
+                        if (historyOverlayPanel != null) { 
+                            historyOverlayPanel.Visible = false;
                     }
+                }
                 }
             }
         }
@@ -872,21 +862,24 @@ namespace Simple_Windows_Calculator
                 InitializeHistoryPanel();
             }
 
+            // Use null-conditional operators to handle potential nulls
+            if (historyContentPanel == null) return;
+
             isHistoryVisible = !isHistoryVisible;
 
             if (isHistoryVisible)
             {
                 // Update history list before showing
-                ListBox historyList = historyContentPanel.Tag as ListBox;
-                historyList.Items.Clear();
+                ListBox? historyList = historyContentPanel.Tag as ListBox;
+                historyList?.Items.Clear();
                 foreach (var entry in calculationHistory)
                 {
-                    historyList.Items.Add(entry);
+                    historyList?.Items.Add(entry);
                 }
 
                 // Ensure proper width
                 historyContentPanel.Width = this.ClientSize.Width;
-                historyOverlayPanel.Size = this.ClientSize;
+                historyOverlayPanel!.Size = this.ClientSize;
 
                 // Position history panel at bottom (off-screen)
                 historyContentPanel.Location = new Point(0, this.ClientSize.Height);
@@ -897,17 +890,17 @@ namespace Simple_Windows_Calculator
                 targetY = this.ClientSize.Height - HistoryPanelHeight;
 
                 // Start animation
-                slideTimer.Start();
+                slideTimer?.Start();
             }
             else
             {
                 // Calculate target position (slide down to hide)
                 targetY = this.ClientSize.Height;
-                slideTimer.Start();
+                slideTimer?.Start();
             }
         }
 
-        private void ButtonHistory_Click(object sender, EventArgs e)
+        private void ButtonHistory_Click(object? sender, EventArgs e)
         {
             ToggleHistoryPanel();
         }
@@ -929,7 +922,6 @@ namespace Simple_Windows_Calculator
                 calculationHistory.RemoveAt(MaxHistoryEntries);
             }
         }
-     
 
         // Handle form resize to keep history panel properly sized
         protected override void OnResize(EventArgs e)
@@ -955,14 +947,10 @@ namespace Simple_Windows_Calculator
         // Clean up resources
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (slideTimer != null)
-            {
-                slideTimer.Stop();
-                slideTimer.Dispose();
-            }
+            slideTimer?.Stop();
+            slideTimer?.Dispose();
             base.OnFormClosing(e);
         }
-
 
         // end of history functionality
 
@@ -987,47 +975,146 @@ namespace Simple_Windows_Calculator
         }
         private void ButtonMenu_Click(object sender, EventArgs e)
         {
-            // Create context menu
+            // Create context menu with Windows 10 styling
             ContextMenuStrip contextMenu = new ContextMenuStrip();
-            contextMenu.BackColor = Color.FromArgb(32, 32, 32);
+            contextMenu.Renderer = new Windows10MenuRenderer();
+            contextMenu.BackColor = Color.FromArgb(45, 45, 45);
             contextMenu.ForeColor = Color.White;
+            contextMenu.Font = new Font("Segoe UI", 9F);
+            contextMenu.ShowImageMargin = false;
+            contextMenu.ShowCheckMargin = false;
 
-            // Add menu items
+            // Add menu items with Windows 10 styling
             ToolStripMenuItem standardItem = new ToolStripMenuItem("Standard");
             ToolStripMenuItem scientificItem = new ToolStripMenuItem("Scientific");
             ToolStripMenuItem programmerItem = new ToolStripMenuItem("Programmer");
 
-            // History item with count
+            // History item with count (Windows 10 style)
             string historyText = calculationHistory.Count > 0 ?
                 $"History ({calculationHistory.Count})" : "History";
             ToolStripMenuItem historyItem = new ToolStripMenuItem(historyText);
 
             ToolStripMenuItem aboutItem = new ToolStripMenuItem("About");
 
-            // Style menu items
+            // Style menu items with Windows 10 colors and padding
             foreach (ToolStripMenuItem item in new[] { standardItem, scientificItem, programmerItem, historyItem, aboutItem })
             {
-                item.BackColor = Color.FromArgb(32, 32, 32);
+                item.BackColor = Color.FromArgb(45, 45, 45);
                 item.ForeColor = Color.White;
+                item.Font = new Font("Segoe UI", 9F);
+                item.Padding = new Padding(10, 6, 10, 6);
+                item.Margin = new Padding(0);
             }
 
+            // Add click events
             standardItem.Click += (s, args) => ShowCalculatorMode("Standard");
             scientificItem.Click += (s, args) => ShowCalculatorMode("Scientific");
             programmerItem.Click += (s, args) => ShowCalculatorMode("Programmer");
             historyItem.Click += (s, args) => ToggleHistoryPanel();
             aboutItem.Click += (s, args) => ShowAboutDialog();
 
+            // Add items to menu with Windows 10 spacing
             contextMenu.Items.Add(standardItem);
             contextMenu.Items.Add(scientificItem);
             contextMenu.Items.Add(programmerItem);
-            contextMenu.Items.Add(new ToolStripSeparator());
+
+            // Add separator with Windows 10 style
+            ToolStripSeparator sep1 = new ToolStripSeparator();
+            sep1.Margin = new Padding(0, 2, 0, 2);
+            sep1.Padding = new Padding(0);
+            contextMenu.Items.Add(sep1);
+
             contextMenu.Items.Add(historyItem);
-            contextMenu.Items.Add(new ToolStripSeparator());
+
+            // Add second separator
+            ToolStripSeparator sep2 = new ToolStripSeparator();
+            sep2.Margin = new Padding(0, 2, 0, 2);
+            sep2.Padding = new Padding(0);
+            contextMenu.Items.Add(sep2);
+
             contextMenu.Items.Add(aboutItem);
 
-            // Show menu at button location
+            // Show menu at button location (aligned properly)
             contextMenu.Show(btnMenu, new Point(0, btnMenu.Height));
         }
+
+        // Custom renderer for Windows 10 style menu
+        private class Windows10MenuRenderer : ToolStripProfessionalRenderer
+        {
+            public Windows10MenuRenderer() : base(new Windows10ColorTable()) { }
+
+            protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+            {
+                e.TextColor = e.Item.Selected ? Color.Black : Color.White;
+                e.TextFont = new Font("Segoe UI", 9F);
+                base.OnRenderItemText(e);
+            }
+
+            protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e)
+            {
+                e.ArrowColor = e.Item.Selected ? Color.Black : Color.LightGray;
+                base.OnRenderArrow(e);
+            }
+
+            protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+            {
+                Rectangle rect = new Rectangle(Point.Empty, e.Item.Size);
+                using (Pen pen = new Pen(Color.FromArgb(60, 60, 60)))
+                {
+                    e.Graphics.DrawLine(pen, rect.Left + 10, rect.Height / 2, rect.Right - 10, rect.Height / 2);
+                }
+            }
+
+            protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+            {
+                Rectangle rect = new Rectangle(Point.Empty, e.Item.Size);
+
+                if (e.Item.Selected)
+                {
+                    // Windows 10 selection color
+                    using (SolidBrush brush = new SolidBrush(Color.FromArgb(65, 156, 227)))
+                    {
+                        e.Graphics.FillRectangle(brush, rect);
+                    }
+                }
+                else
+                {
+                    // Default background
+                    using (SolidBrush brush = new SolidBrush(Color.FromArgb(45, 45, 45)))
+                    {
+                        e.Graphics.FillRectangle(brush, rect);
+                    }
+                }
+            }
+
+            protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+            {
+                // Remove the default border and add subtle Windows 10 style border
+                using (Pen pen = new Pen(Color.FromArgb(80, 80, 80)))
+                {
+                    e.Graphics.DrawRectangle(pen, new Rectangle(0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1));
+                }
+            }
+        }
+
+        // Custom color table for Windows 10
+        private class Windows10ColorTable : ProfessionalColorTable
+        {
+            public override Color MenuBorder => Color.FromArgb(80, 80, 80);
+            public override Color MenuItemBorder => Color.Transparent;
+            public override Color MenuItemSelected => Color.FromArgb(65, 156, 227);
+            public override Color MenuItemSelectedGradientBegin => Color.FromArgb(65, 156, 227);
+            public override Color MenuItemSelectedGradientEnd => Color.FromArgb(65, 156, 227);
+            public override Color MenuStripGradientBegin => Color.FromArgb(45, 45, 45);
+            public override Color MenuStripGradientEnd => Color.FromArgb(45, 45, 45);
+            public override Color ImageMarginGradientBegin => Color.FromArgb(45, 45, 45);
+            public override Color ImageMarginGradientEnd => Color.FromArgb(45, 45, 45);
+            public override Color ImageMarginGradientMiddle => Color.FromArgb(45, 45, 45);
+            public override Color ToolStripDropDownBackground => Color.FromArgb(45, 45, 45);
+            public override Color SeparatorDark => Color.FromArgb(60, 60, 60);
+            public override Color SeparatorLight => Color.FromArgb(60, 60, 60);
+        }
+
 
 
         private void textMainDisplay_TextChanged(object sender, EventArgs e)

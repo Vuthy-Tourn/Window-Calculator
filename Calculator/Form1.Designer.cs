@@ -53,9 +53,9 @@
             btnMemoryStore = new Button();
             btnMemoryShow = new Button();
             panelHeader = new Panel();
-            btnHistory = new Button();
             btnMenu = new Button();
             lblTitle = new Label();
+            btnHistory = new Button();
             tableLayoutPanel1.SuspendLayout();
             panelMemory.SuspendLayout();
             panelHeader.SuspendLayout();
@@ -694,25 +694,9 @@
             panelHeader.Controls.Add(btnHistory);
             panelHeader.Location = new Point(0, 0);
             panelHeader.Name = "panelHeader";
+            panelHeader.Padding = new Padding(3);
             panelHeader.Size = new Size(815, 76);
             panelHeader.TabIndex = 4;
-            // 
-            // btnHistory
-            // 
-            btnHistory.BackColor = Color.Transparent;
-            btnHistory.FlatAppearance.BorderSize = 0;
-            btnHistory.FlatAppearance.MouseOverBackColor = Color.FromArgb(50, 50, 50);
-            btnHistory.FlatStyle = FlatStyle.Flat;
-            btnHistory.Font = new Font("Segoe MDL2 Assets", 16F);
-            btnHistory.ForeColor = Color.White;
-            btnHistory.Location = new Point(750, 5);
-            btnHistory.Name = "btnHistory";
-            btnHistory.Size = new Size(60, 68);
-            btnHistory.TabIndex = 2;
-            btnHistory.Text = "🕐";
-            btnHistory.TextAlign = ContentAlignment.TopCenter;
-            btnHistory.UseVisualStyleBackColor = false;
-            btnHistory.Click += ButtonHistory_Click;
             // 
             // btnMenu
             // 
@@ -723,11 +707,12 @@
             btnMenu.Font = new Font("Segoe MDL2 Assets", 16F);
             btnMenu.ForeColor = Color.White;
             btnMenu.ImageAlign = ContentAlignment.TopCenter;
-            btnMenu.Location = new Point(5, 5);
+            btnMenu.Location = new Point(5, 4);
             btnMenu.Name = "btnMenu";
             btnMenu.Size = new Size(60, 54);
             btnMenu.TabIndex = 0;
             btnMenu.Text = "☰";
+            btnMenu.TextAlign = ContentAlignment.TopCenter;
             btnMenu.UseVisualStyleBackColor = false;
             btnMenu.Click += ButtonMenu_Click;
             // 
@@ -736,11 +721,30 @@
             lblTitle.AutoSize = true;
             lblTitle.Font = new Font("Segoe UI", 13F);
             lblTitle.ForeColor = Color.White;
-            lblTitle.Location = new Point(58, 12);
+            lblTitle.Location = new Point(61, 15);
             lblTitle.Name = "lblTitle";
             lblTitle.Size = new Size(160, 47);
             lblTitle.TabIndex = 1;
             lblTitle.Text = "Standard";
+            // 
+            // btnHistory
+            // 
+            btnHistory.BackColor = Color.Transparent;
+            btnHistory.BackgroundImage = (Image)resources.GetObject("btnHistory.BackgroundImage");
+            btnHistory.BackgroundImageLayout = ImageLayout.Zoom;
+            btnHistory.FlatAppearance.BorderSize = 0;
+            btnHistory.FlatAppearance.MouseOverBackColor = Color.FromArgb(50, 50, 50);
+            btnHistory.FlatStyle = FlatStyle.Flat;
+            btnHistory.Font = new Font("Segoe MDL2 Assets", 16F);
+            btnHistory.ForeColor = Color.White;
+            btnHistory.Location = new Point(757, 12);
+            btnHistory.Name = "btnHistory";
+            btnHistory.Padding = new Padding(5);
+            btnHistory.Size = new Size(43, 49);
+            btnHistory.TabIndex = 2;
+            btnHistory.TextAlign = ContentAlignment.TopCenter;
+            btnHistory.UseVisualStyleBackColor = false;
+            btnHistory.Click += ButtonHistory_Click;
             // 
             // SimpleCalculator
             // 
